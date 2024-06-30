@@ -28,14 +28,13 @@ import {
   faHome,
 } from "@fortawesome/free-solid-svg-icons";
 
-import {
-  DropdownItem,
-  DropdownSection,
-} from "@nextui-org/react";
+import { DropdownItem, DropdownSection } from "@nextui-org/react";
 
 import { Dropdown, DropdownTrigger, DropdownMenu } from "@nextui-org/react";
 
 import { motion } from "framer-motion";
+import { usePathname } from "next/navigation";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const primaryFont = Roboto_Serif({
   subsets: ["latin"],
@@ -61,11 +60,17 @@ const metadata = {
 };
 
 const RootState = ({ children }: { children: React.ReactNode }) => {
+  const pathname = usePathname();
+
   const { state, dispatch } = useAppState();
   const supabase = createClient();
   const [selectionMenu, setSelectionMenu] = useState({} as SelectionMenu);
   const [isNavigationsDropdownOpen, setNavigationsDropdownOpen] =
     useState(false);
+  const [isPageLeaveConfirmModalOpen, setIsPageLeaveConfirmModalOpen] =
+    useState(false);
+  const [previousPathname, setPreviousPathname] = useState("");
+  const [currentPathname, setCurrentPathname] = useState("");
 
   // Build the selection menu
   useEffect(() => {
@@ -272,6 +277,24 @@ const RootState = ({ children }: { children: React.ReactNode }) => {
     };
   }, [selectionMenu, onSignedIn, onSignedOut, supabase.auth]);
 
+  const handleConfirmSaveUnsavedChanges = useCallback(() => {
+    // Save the state
+
+    // Local save
+    if (state.appState.user instanceof GuestUser) {
+      // TODO
+    }
+    // Remote save
+    else if (state.appState.user instanceof MainUser) {
+      // TODO
+    }
+  }, [state.appState.user]);
+
+  const handleRejectUnsavedChanges = useCallback(() => {
+    // Reset the state
+    // TODO
+  }, []);
+
   const floatingLogo = useMemo(
     () => (
       <motion.button
@@ -383,10 +406,67 @@ const RootState = ({ children }: { children: React.ReactNode }) => {
     );
   }, [floatingLogo, isNavigationsDropdownOpen, userDropdown]);
 
+  /**
+   * Page leave confirmation modal
+   *
+   * This modal will be shown when the user tries to leave the page with unsaved changes.
+   * The user can either save the changes or reject them.
+   * Regardless, the user is redirected where they want to go.
+   * The state is saved locally or remotely depending on the user type.
+   */
+  const unsavedChangesModal = useMemo(() => {
+    return (
+      <ConfirmModal
+        confirmAction={handleConfirmSaveUnsavedChanges}
+        cancelAction={handleRejectUnsavedChanges}
+        title="Save unsaved changes?"
+        message={"You have unsaved changes. Do you want to save them?"}
+        isConfirmationOpen={isPageLeaveConfirmModalOpen}
+        onConfirmationOpenChange={setIsPageLeaveConfirmModalOpen}
+      />
+    );
+  }, [
+    handleConfirmSaveUnsavedChanges,
+    handleRejectUnsavedChanges,
+    isPageLeaveConfirmModalOpen,
+  ]);
+
+  /**
+   * Page leave confirmation
+   * Adds a listener to the beforeunload event
+   * to show the page leave confirmation modal
+   */
+  useEffect(() => {
+    const handleBeforeUnload = (event: any) => {
+      // if the route doesn't start with /days, show the modal
+      if (!currentPathname.startsWith("/days") && previousPathname.startsWith("/days")) {
+        setIsPageLeaveConfirmModalOpen(true);
+        event.preventDefault();
+        event.returnValue = "";
+      }
+
+      return event.returnValue;
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isPageLeaveConfirmModalOpen, currentPathname, previousPathname]);
+
+  useEffect(() => {
+    setPreviousPathname(currentPathname);
+    setCurrentPathname(pathname);
+  }, [currentPathname, pathname])
+
   return (
     <div className="relative">
       {/* Navigations */}
       {navigationBar}
+
+      {/* Page leave confirmation modal */}
+      {unsavedChangesModal}
 
       {/* Main content */}
       {children}

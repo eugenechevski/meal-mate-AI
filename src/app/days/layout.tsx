@@ -43,13 +43,15 @@ import { GuestUser, Ingredient, MainUser } from "@/core";
 
 import { createClient } from "@/lib/supabase/client";
 
-import { useRouter } from "next/navigation";
+import { useRouter as useAppRouter, usePathname } from "next/navigation";
 
 import stringify from "json-stringify-safe";
 
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm, SubmitHandler, set } from "react-hook-form";
 
 import { useChat } from "ai/react";
+
+import ConfirmModal from "@/components/ConfirmModal";
 
 type IngredientData = {
   name: string;
@@ -82,7 +84,7 @@ export default function DaysMealLayout({
   children: React.ReactNode;
 }) {
   const supabase = createClient();
-  const router = useRouter();
+  const router = useAppRouter();
 
   const { state, dispatch } = useAppState();
   const [isMealPlanEmpty, setIsMealPlanEmpty] = useState(true);
@@ -690,7 +692,11 @@ export default function DaysMealLayout({
 
   const chatModal = useMemo(() => {
     return (
-      <Modal isOpen={isChatOpen} onOpenChange={onChatOpenChange} placement="center">
+      <Modal
+        isOpen={isChatOpen}
+        onOpenChange={onChatOpenChange}
+        placement="center"
+      >
         <ModalContent>
           <ModalHeader className="flex justify-center">Chat</ModalHeader>
           <ModalBody>{chatBodyContent}</ModalBody>
@@ -730,40 +736,16 @@ export default function DaysMealLayout({
     handleChatInputChange,
   ]);
 
-  const confirmationModal = useMemo(() => {
+  const mealPlanFinishConfirmModal = useMemo(() => {
     return (
-      <Modal
-        isOpen={isConfirmationOpen}
-        placement="center"
-        className="z-[100]"
-        onOpenChange={onConfirmationOpenChange}
-        backdrop="blur"
-      >
-        <ModalContent>
-          <ModalHeader className="flex justify-center">
-            Confirm Finish
-          </ModalHeader>
-          <ModalBody>
-            <h2 className="font-secondary text-xl">
-              Are you sure you want to finish the meal plan?
-            </h2>
-          </ModalBody>
-          <ModalFooter className="flex justify-center items-center">
-            <motion.button
-              className="primary-icon bg-primary-green"
-              onClick={confirmFinishMealPlan}
-            >
-              <FontAwesomeIcon icon={faCheck} />
-            </motion.button>
-            <motion.button
-              className="primary-icon bg-primary-red"
-              onClick={cancelFinishMealPlan}
-            >
-              <FontAwesomeIcon icon={faClose} />
-            </motion.button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <ConfirmModal
+        confirmAction={confirmFinishMealPlan}
+        cancelAction={cancelFinishMealPlan}
+        title="Finish Meal Plan"
+        message="Are you sure you want to finish the meal plan?"
+        isConfirmationOpen={isConfirmationOpen}
+        onConfirmationOpenChange={onConfirmationOpenChange}
+      />
     );
   }, [
     cancelFinishMealPlan,
@@ -844,6 +826,10 @@ export default function DaysMealLayout({
     );
   }, [isTriggersDropdownOpen, onChatOpen, onIngredientsOpen, onOverviewOpen]);
 
+  /**
+   * Check if the meal plan is empty
+   * and update the state accordingly
+   */
   useEffect(() => {
     if (mealPlanData && Object.keys(mealPlanData).length !== 0) {
       setIsMealPlanEmpty(false);
@@ -865,7 +851,7 @@ export default function DaysMealLayout({
       {ingredientsTable}
 
       {/* Confirmation modal */}
-      {confirmationModal}
+      {mealPlanFinishConfirmModal}
 
       {children}
     </main>
